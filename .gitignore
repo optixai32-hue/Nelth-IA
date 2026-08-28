@@ -41,3 +41,5 @@ next-env.d.ts
 .local-uploads/
 # Local-only scratch / docs (not committed)
 _local/
+
+.vercel

@@ -116,7 +116,7 @@ export async function enforceSkillOutput(opts: EnforceOptions): Promise<void> {
   // reinforcement pass for it even when the first validation passes, so the
   // ACTIVE SKILLS are genuinely applied.
   //
-  // Nelth-3.5 Thinking (stepfun-ai/step-3.7-flash) is a stronger reasoning
+  // Nelth-3.5 Thinking (stepfun/step-3.7-flash:free, served from the Kilo gateway) is a stronger reasoning
   // model, BUT in practice it also ignores the active skill's substance on its
   // first pass (e.g. it emits emoji section headers / emoji-as-icon and does
   // NOT apply skills-main). So it is NO LONGER trusted and is held to the same

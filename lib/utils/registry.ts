@@ -14,11 +14,12 @@ function normalizeOpenAICompatibleBaseURL(raw: string): string {
   return raw.replace(/\/+$/, '').replace(/\/v1$/, '') + '/v1'
 }
 
-// Nelth-3.5 (tencent/hy3:free) is served from the Kilo AI gateway
-// (https://api.kilo.ai/api/gateway/chat/completions). It must run with thinking
-// OFF — we send `chat_template_kwargs.reasoning_effort: "no_think"` inside
-// `extra_body`, matching the gateway's expected request shape. Nelth-3.5 Thinking
-// (stepfun) stays on the NVIDIA openai-compatible provider and is untouched.
+// Nelth-3.5 (tencent/hy3:free) and Nelth-3.5 Thinking
+// (stepfun/step-3.7-flash:free) are both served from the Kilo AI gateway
+// (https://api.kilo.ai/api/gateway/chat/completions). Nelth-3.5 must run with
+// thinking OFF — we send `chat_template_kwargs.reasoning_effort: "no_think"`
+// inside `extra_body`, matching the gateway's expected request shape.
+// Nelth-3.5 Thinking stays on the gateway with thinking ON (untouched).
 //
 // NOTE: we never send a reasoning budget — with thinking disabled a reasoning
 // budget is contradictory. Skills are applied via the prompt layer
@@ -31,7 +32,7 @@ const NELTH_NON_THINKING_BODY = {
   top_p: 1.0
 }
 
-// NVIDIA's hosted endpoint (both Nelth-3.5 and Nelth-3.5 Thinking) shares a
+// The Kilo gateway endpoint (both Nelth-3.5 and Nelth-3.5 Thinking) shares a
 // worker with a hard concurrency cap. When it is exceeded the endpoint returns
 // HTTP 503 with `ResourceExhausted: Worker local total request limit reached
 // (16/16)` (or a hang). This is transient — the slot frees up shortly after —

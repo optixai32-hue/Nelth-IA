@@ -30,7 +30,7 @@ function modelKey(providerId: string, modelId: string): string {
 
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'tencent/hy3:free': 'Nelth-3.5',
-  'stepfun-ai/step-3.7-flash': 'Nelth-3.5 Thinking'
+  'stepfun/step-3.7-flash:free': 'Nelth-3.5 Thinking'
 }
 
 function displayName(model: { id: string; name: string }): string {
