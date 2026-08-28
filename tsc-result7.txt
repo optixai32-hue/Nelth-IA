@@ -1,0 +1,6 @@
+﻿components/assistant-ui/markdown-text.tsx(13,14): error TS2322: Type '{ code: ({ children, className, ...props }: React.HTMLAttributes<HTMLElement>) => JSX.Element; }' is not assignable to type 'Components'.
+  Property 'code' is incompatible with index signature.
+    Type '({ children, className, ...props }: HTMLAttributes<HTMLElement>) => Element' is not assignable to type 'keyof IntrinsicElements | ComponentType<Record<string, unknown> & ExtraProps> | undefined'.
+      Type '({ children, className, ...props }: HTMLAttributes<HTMLElement>) => Element' is not assignable to type 'FunctionComponent<Record<string, unknown> & ExtraProps>'.
+        Types of parameters '__0' and 'props' are incompatible.
+          Type 'Record<string, unknown> & ExtraProps' has no properties in common with type 'HTMLAttributes<HTMLElement>'.

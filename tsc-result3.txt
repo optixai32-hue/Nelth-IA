@@ -1,0 +1,24 @@
+﻿components/assistant-ui/code-block.tsx(39,10): error TS2741: Property 'theme' is missing in type '{ children: string; language: string | undefined; className: string; }' but required in type 'ShikiHighlighterProps'.
+components/assistant-ui/markdown-text.tsx(18,3): error TS2322: Type 'ReactNode' is not assignable to type 'Components'.
+  Type 'undefined' is not assignable to type 'Components'.
+    Type 'undefined' is not assignable to type '{ a?: keyof IntrinsicElements | ComponentType<ClassAttributes<HTMLAnchorElement> & AnchorHTMLAttributes<HTMLAnchorElement> & ExtraProps> | undefined; ... 176 more ...; view?: keyof IntrinsicElements | ... 1 more ... | undefined; }'.
+components/assistant-ui/markdown-text.tsx(18,10): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(Component: FunctionComponent<object>, propsAreEqual?: ((prevProps: object, nextProps: object) => boolean) | undefined): NamedExoticComponent<object>', gave the following error.
+    Type 'Components' is not assignable to type 'ReactNode'.
+      Type 'Components' is missing the following properties from type 'ReactPortal': children, type, props, key
+  Overload 2 of 2, '(Component: ComponentType<any>, propsAreEqual?: ((prevProps: Readonly<any>, nextProps: Readonly<any>) => boolean) | undefined): MemoExoticComponent<ComponentType<any>>', gave the following error.
+    Argument of type '() => Components' is not assignable to parameter of type 'ComponentType<any>'.
+      Type '() => Components' is not assignable to type 'FunctionComponent<any>'.
+        Type 'Components' is not assignable to type 'ReactNode'.
+          Type 'Components' is missing the following properties from type 'ReactPortal': children, type, props, key
+components/assistant-ui/markdown-text.tsx(18,10): error TS2554: Expected 1 arguments, but got 0.
+components/assistant-ui/markdown-text.tsx(22,3): error TS2322: Type '(props: ShikiHighlighterProps) => Element' is not assignable to type 'keyof IntrinsicElements | ComponentType<Record<string, unknown> & ExtraProps> | undefined'.
+  Type '(props: ShikiHighlighterProps) => Element' is not assignable to type 'FunctionComponent<Record<string, unknown> & ExtraProps>'.
+    Types of parameters 'props' and 'props' are incompatible.
+      Type 'Record<string, unknown> & ExtraProps' is missing the following properties from type 'ShikiHighlighterProps': language, children, theme
+components/assistant-ui/markdown-text.tsx(23,3): error TS2322: Type '({ children, className, node, ...props }: { [key: string]: unknown; children?: ReactNode; className?: string | undefined; node?: { properties?: { metastring?: string | undefined; className?: string[] | undefined; } | undefined; } | undefined; }) => Element' is not assignable to type 'keyof IntrinsicElements | ComponentType<ClassAttributes<HTMLElement> & HTMLAttributes<HTMLElement> & ExtraProps> | undefined'.
+  Type '({ children, className, node, ...props }: { [key: string]: unknown; children?: ReactNode; className?: string | undefined; node?: { properties?: { metastring?: string | undefined; className?: string[] | undefined; } | undefined; } | undefined; }) => Element' is not assignable to type 'FunctionComponent<ClassAttributes<HTMLElement> & HTMLAttributes<HTMLElement> & ExtraProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Type 'ClassAttributes<HTMLElement> & HTMLAttributes<HTMLElement> & ExtraProps' is not assignable to type '{ [key: string]: unknown; children?: ReactNode; className?: string | undefined; node?: { properties?: { metastring?: string | undefined; className?: string[] | undefined; } | undefined; } | undefined; }'.
+        Index signature for type 'string' is missing in type 'ClassAttributes<HTMLElement> & HTMLAttributes<HTMLElement> & ExtraProps'.
+components/assistant-ui/shiki-highlighter.tsx(10,7): error TS2783: 'theme' is specified more than once, so this usage will be overwritten.

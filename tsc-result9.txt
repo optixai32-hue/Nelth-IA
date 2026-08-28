@@ -1,0 +1,5 @@
+﻿components/assistant-ui/markdown-text.tsx(14,3): error TS2322: Type '({ children, className, ...props }: { [key: string]: unknown; children?: unknown; className?: string | undefined; }) => Element' is not assignable to type 'keyof IntrinsicElements | ComponentType<ClassAttributes<HTMLElement> & HTMLAttributes<HTMLElement> & ExtraProps> | undefined'.
+  Type '({ children, className, ...props }: { [key: string]: unknown; children?: unknown; className?: string | undefined; }) => Element' is not assignable to type 'FunctionComponent<ClassAttributes<HTMLElement> & HTMLAttributes<HTMLElement> & ExtraProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Type 'ClassAttributes<HTMLElement> & HTMLAttributes<HTMLElement> & ExtraProps' is not assignable to type '{ [key: string]: unknown; children?: unknown; className?: string | undefined; }'.
+        Index signature for type 'string' is missing in type 'ClassAttributes<HTMLElement> & HTMLAttributes<HTMLElement> & ExtraProps'.

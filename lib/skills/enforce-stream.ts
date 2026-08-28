@@ -1,0 +1,235 @@
+/**
+ * Streaming-side enforcement hook.
+ *
+ * After the researcher agent finishes streaming an answer, we validate the
+ * produced output against the active skills. If validation fails (invalid CSS,
+ * broken HTML, generic template, etc.) we run a bounded generate → validate →
+ * fix loop using the same researcher, and replace the final message text with
+ * the refined (passing) result before it is persisted. This makes the saved /
+ * finalized answer ENFORCED, not just detected.
+ *
+ * The router, loader, buildSkillContext and researcher are all reused — this is
+ * purely an add-on to the existing pipeline.
+ */
+
+import type { ModelMessage } from 'ai'
+
+import { researcher } from '@/lib/agents/researcher'
+import type { Model } from '@/lib/types/models'
+import type { SearchMode } from '@/lib/types/search'
+import { getTextFromParts } from '@/lib/utils/message-utils'
+
+import { SkillEnforcementEngine } from './enforce'
+import type { SkillContextResult } from './types'
+import { validateGeneratedOutput } from './validate'
+import { stripEmojisFromCodeBlocks } from './ui-icon-validator'
+
+interface EnforceOptions {
+  responseMessage: { parts?: unknown[]; role?: string }
+  userQuery: string
+  skillCtx: SkillContextResult
+  model: string
+  modelConfig: Model | undefined
+  searchMode: SearchMode | undefined
+  modelMessages: ModelMessage[]
+}
+
+/** Replace the text content of a message's parts with a single refined block. */
+function setTextInMessage(message: { parts?: unknown[] }, text: string): void {
+  const parts = (message.parts as Array<{ type: string; text?: string }>) ?? []
+  let replaced = false
+  for (const p of parts) {
+    if (p.type === 'text' && !replaced) {
+      p.text = text
+      replaced = true
+    } else if (p.type === 'text') {
+      p.text = ''
+    }
+  }
+  if (!replaced) parts.push({ type: 'text', text })
+}
+
+/**
+ * Strip emoji from any generated code/artifact blocks in a message, regardless
+ * of which skill (if any) is active. Conversational text outside code blocks is
+ * preserved (emoji used as on-page copy stays). Returns true when modified.
+ *
+ * This is the deterministic fix for "emoji-in-generated-code": the weak model
+ * keeps re-inserting emoji-as-UI-icons even when no visual skill is active, so
+ * the cleanup must run on EVERY artifact response, not only for visual skills.
+ */
+export function stripEmojiFromCodeInMessage(message: { parts?: unknown[] }): boolean {
+  const text = getTextFromParts(message.parts as never)
+  if (!text) return false
+  const cleaned = stripEmojisFromCodeBlocks(text)
+  if (cleaned === text) return false
+  setTextInMessage(message, cleaned)
+  return true
+}
+
+/**
+ * Build the explicit "apply the active skill" prompt used to force the weak
+ * non-thinking model through a reinforcement pass. It lists each active skill's
+ * concrete requirements so the re-generation visibly satisfies them, instead of
+ * repeating a draft that merely looked valid.
+ */
+function buildSkillReinforcePrompt(
+  userQuery: string,
+  skillCtx: SkillContextResult
+): string {
+  const skills = skillCtx.activated
+    .map(a => {
+      const reqs = a.validationRules.length ? a.validationRules : [a.objective]
+      return `- ${a.name} (${a.slug}):\n${reqs.map(r => `   • ${r}`).join('\n')}`
+    })
+    .join('\n')
+  return `TASK: ${userQuery}
+
+Your previous answer did NOT clearly apply the ACTIVE SKILL(S). Rewrite the final result so it VISIBLY satisfies the requirements below — do not merely describe them, apply them directly.
+
+ACTIVE SKILLS TO APPLY:
+${skills}
+
+Return ONLY the improved final result.`
+}
+
+/**
+ * Validate the agent's answer and, if it fails active-skill validation, refine
+ * it in place. Failures are non-fatal: the original answer is kept if the
+ * refinement itself errors.
+ */
+export async function enforceSkillOutput(opts: EnforceOptions): Promise<void> {
+  const { responseMessage, userQuery, skillCtx, model, modelConfig, searchMode, modelMessages } =
+    opts
+
+  if (!skillCtx.activated.length) return
+
+  const draft0 = getTextFromParts(responseMessage.parts as never)
+  if (!draft0) return
+
+  const slugs = skillCtx.activated.map(a => a.slug)
+  const bodies = skillCtx.activated.map(a => a.objective)
+
+  // Nelth-3.5 (tencent/hy3:free) is the weak non-thinking model. It tends to
+  // "apply the skills a little" — i.e. it produces a structurally-valid answer
+  // that ignores the active skill's substance. We therefore FORCE a
+  // reinforcement pass for it even when the first validation passes, so the
+  // ACTIVE SKILLS are genuinely applied.
+  //
+  // Nelth-3.5 Thinking (stepfun-ai/step-3.7-flash) is a stronger reasoning
+  // model, BUT in practice it also ignores the active skill's substance on its
+  // first pass (e.g. it emits emoji section headers / emoji-as-icon and does
+  // NOT apply skills-main). So it is NO LONGER trusted and is held to the same
+  // standard: it is forced through the skill-application reinforcement pass too.
+  const isWeakModel = /(tencent\/hy3|hy3:free)/i.test(model)
+  const isThinkingModel = /(stepfun|step-3\.7-flash|nelth-3\.5 thinking|thinking)/i.test(
+    model
+  )
+
+  // Visual/frontend artifacts must never contain emoji used as UI icons.
+  const VISUAL_SKILLS = new Set([
+    'frontend-design',
+    'visual-craft',
+    'web-artifacts-builder',
+    'website-clone'
+  ])
+  const isVisualSkill = skillCtx.activated.some(a => VISUAL_SKILLS.has(a.slug))
+
+  // DETERMINISTIC cleanup: strip emoji from any generated code block up front,
+  // so the validated/persisted artifact is already clean — independent of the
+  // weak model re-inserting emoji. Only code blocks are touched; conversational
+  // text outside code is preserved.
+  let draft = draft0
+  if (isVisualSkill) {
+    const cleaned = stripEmojisFromCodeBlocks(draft0)
+    if (cleaned !== draft0) {
+      setTextInMessage(responseMessage, cleaned)
+      draft = cleaned
+    }
+  }
+
+  const first0 = validateGeneratedOutput(draft0, {
+    query: userQuery,
+    slugs,
+    bodies,
+    intent: skillCtx.intent,
+    previousDesignSummary: skillCtx.previousDesignSummary
+  })
+  const first = validateGeneratedOutput(draft, {
+    query: userQuery,
+    slugs,
+    bodies,
+    intent: skillCtx.intent,
+    previousDesignSummary: skillCtx.previousDesignSummary
+  })
+  // If the ONLY original problem was emoji-in-code (now stripped), do not waste
+  // a reinforcement pass on the weak model — the artifact is already clean.
+  const onlyEmojiViolations =
+    first0.violations.length > 0 &&
+    first0.violations.every(v => v.rule === 'ui.emoji-as-icon')
+
+  if (first.passed && !isWeakModel && !isThinkingModel) {
+    if (process.env.SKILL_ROUTER_DEBUG === 'true') {
+      console.log('[SkillRouter] enforcement: first generation validation PASSED')
+    }
+    return
+  }
+  if (process.env.SKILL_ROUTER_DEBUG === 'true') {
+    console.log(
+      `[SkillRouter] enforcement: ${
+        first.passed
+          ? onlyEmojiViolations
+            ? 'emoji stripped; no other issues — clean'
+            : 'weak model → forcing skill-application pass'
+          : `validation FAILED (${first.summary})`
+      }; refining…`
+    )
+  }
+
+  try {
+    const engine = new SkillEnforcementEngine(skillCtx.activated)
+    const skillContext = skillCtx.operationalPrompt
+      ? `${skillCtx.context}\n\n${skillCtx.operationalPrompt}`
+      : skillCtx.context
+    const agent = researcher({ model, modelConfig, searchMode, skillContext })
+
+    const generate = async (prompt: string): Promise<string> => {
+      const res = await agent.generate({
+        messages: [...modelMessages, { role: 'user', content: prompt } as never]
+      })
+      const t = (res as unknown as { text?: string }).text ?? ''
+      return typeof t === 'string' ? t : ''
+    }
+
+    // When forcing the weak or thinking model, drive the pass with an explicit
+    // "apply the active skill" prompt listing each skill's concrete
+    // requirements, so the re-generation visibly satisfies them instead of
+    // repeating a draft that merely looked valid.
+    const forceApply = first.passed && (isWeakModel || isThinkingModel)
+    const basePrompt = forceApply
+      ? buildSkillReinforcePrompt(userQuery, skillCtx)
+      : `TASK: ${userQuery}\n\nProduce the final result now.`
+
+    const out = await engine.run(generate, basePrompt, {
+      query: userQuery,
+      slugs,
+      bodies,
+      maxIterations: forceApply ? 1 : undefined
+    })
+
+    if (out.finalContent && out.finalContent.trim() && out.finalContent !== draft) {
+      let finalContent = out.finalContent
+      if (isVisualSkill) finalContent = stripEmojisFromCodeBlocks(finalContent)
+      setTextInMessage(responseMessage, finalContent)
+      if (process.env.SKILL_ROUTER_DEBUG === 'true') {
+        console.log(
+          `[SkillRouter] enforcement: refined after ${out.iterations} iteration(s); passed=${out.passed}`
+        )
+      }
+    }
+  } catch (e) {
+    if (process.env.SKILL_ROUTER_DEBUG === 'true') {
+      console.log('[SkillRouter] enforcement refinement error:', String(e).slice(0, 200))
+    }
+  }
+}

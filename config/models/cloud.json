@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "models": {
+    "quick": {
+      "id": "nvidia/z-ai/glm-5.2",
+      "name": "NVIDIA GLM 5.2",
+      "provider": "NVIDIA",
+      "providerId": "openai-compatible",
+      "providerOptions": {
+        "openai-compatible": {
+          "chat_template_kwargs": { "enable_thinking": false, "clear_thinking": true }
+        }
+      }
+    },
+    "adaptive": {
+      "id": "nvidia/z-ai/glm-5.2",
+      "name": "NVIDIA GLM 5.2",
+      "provider": "NVIDIA",
+      "providerId": "openai-compatible",
+      "providerOptions": {
+        "openai-compatible": {
+          "chat_template_kwargs": { "enable_thinking": false, "clear_thinking": true }
+        }
+      }
+    }
+  }
+}
